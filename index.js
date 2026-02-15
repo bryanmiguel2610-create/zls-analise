@@ -1,149 +1,440 @@
 const {
-    Client,
-    GatewayIntentBits,
-    EmbedBuilder,
-    ActionRowBuilder,
-    ButtonBuilder,
-    ButtonStyle,
-    Events
+Client,
+GatewayIntentBits,
+EmbedBuilder,
+ActionRowBuilder,
+ButtonBuilder,
+ButtonStyle,
+Events
 } = require("discord.js");
 
-// CONFIG VIA RAILWAY ENV
+
+// CORREÇÃO: usar Railway env ao invés de config.json
 const config = {
-    token: process.env.DISCORD_TOKEN,
-    guildId: process.env.GUILD_ID,
-    categoriaTicketsAnalise: process.env.CATEGORY_ANALISE_ID,
-    staffRoleId: process.env.STAFF_ID
+token: process.env.DISCORD_TOKEN,
+
+categoriaTicketsAnalise: process.env.CATEGORY_ANALISE_ID,
+
+idDono: process.env.STAFF_ID,
+
+categoriasDestino: {
+diamante: process.env.CATEGORY_DIAMANTE_ID,
+rubi: process.env.CATEGORY_RUBI_ID,
+ouro: process.env.CATEGORY_OURO_ID,
+prata: process.env.CATEGORY_PRATA_ID,
+platina: process.env.CATEGORY_PLATINA_ID,
+bronze: process.env.CATEGORY_BRONZE_ID
+},
+
+cargos: {
+rubi: process.env.ROLE_RUBI_ID,
+ouro: process.env.ROLE_OURO_ID,
+prata: process.env.ROLE_PRATA_ID,
+platina: process.env.ROLE_PLATINA_ID,
+bronze: process.env.ROLE_BRONZE_ID
+}
 };
 
+
 const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.MessageContent
-    ]
+intents: [
+GatewayIntentBits.Guilds,
+GatewayIntentBits.GuildMessages,
+GatewayIntentBits.GuildMembers,
+GatewayIntentBits.MessageContent
+]
 });
 
 const analise = {};
 
-// EMBED PADRÃO
 function embed(titulo, desc) {
-    return new EmbedBuilder()
-        .setTitle(titulo)
-        .setDescription(desc)
-        .setColor("#00bfff")
-        .setFooter({ text: "Sistema Profissional • Zona Leste" })
-        .setTimestamp();
+return new EmbedBuilder()
+.setTitle(titulo)
+.setDescription(desc)
+.setColor("#00ffcc")
+.setFooter({ text: "Sistema Profissional • Zona Leste" })
+.setTimestamp();
 }
 
-// BOT ONLINE
 client.once("ready", () => {
-    console.log(`✅ Bot online como ${client.user.tag}`);
+console.log(`✅ Bot online como ${client.user.tag}`);
 });
 
-// QUANDO CRIAR CANAL
-client.on(Events.ChannelCreate, async (channel) => {
+client.on(Events.ChannelCreate, enviarPainel);
 
-    if (!channel.parentId) return;
+client.on(Events.ChannelUpdate, (oldChannel, newChannel) => {
 
-    if (channel.parentId !== config.categoriaTicketsAnalise) return;
-
-    analise[channel.id] = {
-        etapa: 1,
-        media: null,
-        videos: null,
-        lives: null
-    };
-
-    await channel.send({
-        embeds: [
-            embed("Média de views", "Exemplo: 800")
-        ]
-    });
+if (newChannel.parentId === config.categoriaTicketsAnalise)
+enviarPainel(newChannel);
 
 });
 
-// RESPOSTAS
-client.on(Events.MessageCreate, async (message) => {
+async function enviarPainel(channel) {
 
-    if (message.author.bot) return;
+if (!channel.guild) return;
 
-    const canalId = message.channel.id;
+if (channel.parentId !== config.categoriaTicketsAnalise)
+return;
 
-    if (!analise[canalId]) return;
+// esperar Apollo mandar mensagem primeiro
+setTimeout(async () => {
 
-    const resposta = message.content.trim();
+const botao = new ButtonBuilder()
+.setCustomId("iniciar")
+.setLabel("Iniciar análise")
+.setStyle(ButtonStyle.Success);
 
-    if (!/^\d+$/.test(resposta)) {
+await channel.send({
 
-        await message.reply("❌ Envie apenas números.");
-        return;
+embeds: [
 
-    }
+new EmbedBuilder()
 
-    const numero = parseInt(resposta);
+.setColor("#00ffcc")
 
-    // ETAPA 1
-    if (analise[canalId].etapa === 1) {
+.setTitle("📊 Sistema de Análise de Streamers")
 
-        analise[canalId].media = numero;
-        analise[canalId].etapa = 2;
+.setDescription(
+"Clique no botão abaixo para iniciar sua análise.\n\n" +
+"Envie informações corretas para garantir aprovação."
+)
 
-        await message.channel.send({
-            embeds: [
-                embed("Quantos vídeos por semana?", "Exemplo: 5")
-            ]
-        });
+.setFooter({
+text: "Zona Leste • Sistema Profissional"
+})
 
-        return;
-    }
+.setTimestamp()
 
-    // ETAPA 2
-    if (analise[canalId].etapa === 2) {
+],
 
-        analise[canalId].videos = numero;
-        analise[canalId].etapa = 3;
-
-        await message.channel.send({
-            embeds: [
-                embed("Quantas lives por semana?", "Exemplo: 3")
-            ]
-        });
-
-        return;
-    }
-
-    // ETAPA 3 FINAL
-    if (analise[canalId].etapa === 3) {
-
-        analise[canalId].lives = numero;
-
-        await message.channel.send({
-
-            content: `<@&${config.staffRoleId}>`,
-
-            embeds: [
-
-                embed(
-                    "📊 Análise Finalizada",
-                    `📈 Média de views: ${analise[canalId].media}
-🎥 Vídeos/semana: ${analise[canalId].videos}
-📡 Lives/semana: ${analise[canalId].lives}
-
-✅ Pronto para avaliação da equipe.`
-                )
-
-            ]
-
-        });
-
-        delete analise[canalId];
-
-        return;
-    }
+components: [
+new ActionRowBuilder().addComponents(botao)
+]
 
 });
 
-// LOGIN
+}, 2000);
+
+}
+
+client.on(Events.InteractionCreate, async interaction => {
+
+if (!interaction.isButton()) return;
+
+analise[interaction.user.id] = {
+
+etapa: 1,
+canal: interaction.channel
+
+};
+
+await interaction.reply({
+
+embeds: [
+
+embed(
+"Envie o link do seu perfil",
+"Exemplo:\nhttps://tiktok.com/@usuario"
+)
+
+],
+
+ephemeral: true
+
+});
+
+});
+
+client.on(Events.MessageCreate, async message => {
+
+if (message.author.bot) return;
+
+const user = analise[message.author.id];
+
+if (!user) return;
+
+
+// LINK
+if (user.etapa === 1) {
+
+user.link = message.content;
+
+const nome = user.link.split("@")[1]?.split("/")[0];
+
+user.nome = nome || "streamer";
+
+user.etapa++;
+
+return message.reply({
+
+embeds: [
+embed(
+"Envie o ID do jogo",
+"Exemplo: 143"
+)
+]
+
+});
+
+}
+
+
+// ID DO JOGO
+if (user.etapa === 2) {
+
+user.idjogo = message.content;
+
+user.etapa++;
+
+return message.reply({
+
+embeds: [
+embed(
+"Quantos seguidores você tem?",
+"Envie apenas números.\nExemplo: 1500"
+)
+]
+
+});
+
+}
+
+
+// SEGUIDORES
+if (user.etapa === 3) {
+
+user.seguidores = parseInt(message.content);
+
+if (isNaN(user.seguidores))
+return message.reply("Envie apenas números.");
+
+user.etapa++;
+
+return message.reply({
+
+embeds: [
+embed(
+"Envie o print das métricas",
+"Imagem mostrando seguidores e views"
+)
+]
+
+});
+
+}
+
+
+// PRINT
+if (user.etapa === 4) {
+
+if (!message.attachments.first())
+return message.reply("Envie uma imagem.");
+
+user.etapa++;
+
+return message.reply({
+
+embeds: [
+embed(
+"Média de views",
+"Exemplo: 800"
+)
+]
+
+});
+
+}
+
+
+// VIEWS
+if (user.etapa === 5) {
+
+user.views = parseInt(message.content);
+
+user.etapa++;
+
+return message.reply({
+
+embeds: [
+embed(
+"Quantos vídeos por semana?",
+"Exemplo: 5"
+)
+]
+
+});
+
+}
+
+
+// POSTS
+if (user.etapa === 6) {
+
+user.posts = parseInt(message.content);
+
+user.etapa++;
+
+return message.reply({
+
+embeds: [
+embed(
+"Quantas lives por semana?",
+"Exemplo: 3"
+)
+]
+
+});
+
+}
+
+
+// FINAL
+if (user.etapa === 7) {
+
+user.lives = parseInt(message.content);
+
+const seguidores = user.seguidores;
+
+let categoria;
+let cargo;
+let destino;
+
+
+// RENOMEAR CANAL
+await message.channel.setName(
+`${user.nome}-${user.idjogo}`
+);
+
+
+// CLASSIFICAÇÃO
+
+if (seguidores >= 10000) {
+
+categoria = "Diamante 💎";
+
+await message.channel.setParent(
+config.categoriasDestino.diamante
+);
+
+await message.channel.send({
+
+content: `<@${config.idDono}>`,
+
+embeds: [
+
+embed(
+"Streamer elegível para contrato",
+"Perfil aprovado para contrato manual."
+)
+
+]
+
+});
+
+}
+
+else if (seguidores >= 4000) {
+
+categoria = "Rubi ♦";
+cargo = config.cargos.rubi;
+destino = config.categoriasDestino.rubi;
+
+}
+
+else if (seguidores >= 3000) {
+
+categoria = "Ouro 🥇";
+cargo = config.cargos.ouro;
+destino = config.categoriasDestino.ouro;
+
+}
+
+else if (seguidores >= 2000) {
+
+categoria = "Prata 🥈";
+cargo = config.cargos.prata;
+destino = config.categoriasDestino.prata;
+
+}
+
+else if (seguidores >= 1001) {
+
+categoria = "Platina 💠";
+cargo = config.cargos.platina;
+destino = config.categoriasDestino.platina;
+
+}
+
+else if (seguidores >= 100) {
+
+categoria = "Bronze 🥉";
+cargo = config.cargos.bronze;
+destino = config.categoriasDestino.bronze;
+
+}
+
+else {
+
+categoria = "Reprovado";
+
+}
+
+
+// aplicar cargo
+if (cargo)
+await message.member.roles.add(cargo);
+
+
+// mover ticket
+if (destino)
+await message.channel.setParent(destino);
+
+
+// mensagem final profissional
+await message.channel.send({
+
+embeds: [
+
+new EmbedBuilder()
+
+.setColor("#00ffcc")
+
+.setTitle("✅ Análise concluída com sucesso")
+
+.setDescription(
+
+`Parabéns, você foi aprovado como **Streamer ${categoria}**.\n\n` +
+
+`Seja muito bem-vindo à equipe de streamers.\n\n` +
+
+`📌 Confira os canais abaixo para evitar erros ou punições:\n` +
+
+`• benefícios streamers\n` +
+
+`• regras streamers\n\n` +
+
+`🎁 Envie neste ticket qual benefício deseja resgatar.\n\n` +
+
+`⏱️ Em até **1 hora**, um de nossos atendentes irá finalizar seu atendimento.`
+
+)
+
+.setFooter({
+text: "Zona Leste • Sistema Profissional"
+})
+
+.setTimestamp()
+
+]
+
+});
+
+
+delete analise[message.author.id];
+
+}
+
+});
+
+
 client.login(config.token);
