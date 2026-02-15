@@ -8,7 +8,7 @@ ButtonStyle,
 Events
 } = require("discord.js");
 
-const config = require("./config.json");
+const config = process.env;
 
 const client = new Client({
 intents: [
